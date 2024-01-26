@@ -1,10 +1,36 @@
-# Reflective Loader
+#include "reflective_loader.h"
+#include "utils.h"
+#include <fstream>
+#include <iterator>
 
-## Задача - реализовать простейший PE Loader, который будет считывать с диска PE (EXE) и запускать его из памяти
+ReflectiveLoader::~ReflectiveLoader() {
+    if (!PE.empty()) PE.clear();
+};
 
-## Основная функция загрузчика
+bool ReflectiveLoader::execute_PE() {
+    auto thread_handle = native_reflective_execution();
+    if (thread_handle != NULL) {
+        std::cout << "Wait 10 seconds for reflective loader execution ..." << std::endl;
+        WaitForSingleObject(thread_handle, 10000);
+        return true;
+    }
+    else {
+        std::cout << "Reflective loader work with error!" << std::endl;
+        return false;
+    }
+}
 
-```C++
+bool ReflectiveLoader::load_PE(const char* path) {
+    if (!PE.empty()) PE.clear();
+    std::ifstream file(path, std::ios::binary);
+    if (file.fail()) {
+        std::cout << "File " << path << " not found!" << std::endl;
+        return false;
+    }
+    PE = std::vector<char>(std::istreambuf_iterator<char>(file), {});
+    return true;
+}
+
 HANDLE ReflectiveLoader::native_reflective_execution() {
     PIMAGE_DOS_HEADER           dos, doshost;
     PIMAGE_NT_HEADERS           nt, nthost;
@@ -217,59 +243,4 @@ pe_cleanup:
         printf("Releasing memory\n");
         VirtualFree(cs, 0, MEM_DECOMMIT | MEM_RELEASE);
     }
-```
-
-## Tests
-
-### Проверочный MessageBox ASM x86
-
-```C++
-format PE GUI; at 0xfe0000
-
-include '..\include\win32ax.inc'
-
-.code
-
-  start:
-        invoke  MessageBox,HWND_DESKTOP,"Hi! I'm the example program from .code!",invoke GetCommandLine,MB_OK
-        db 4096 dup(0x90)
-        invoke  MessageBox,HWND_DESKTOP,"Hi! I'm the example program from .code!",invoke GetCommandLine,MB_OK
-        db 4096 dup(0x90)
-        invoke  MessageBox,HWND_DESKTOP,"Hi! I'm the example program from .code!",invoke GetCommandLine,MB_OK
-        jmp Start2
-
-.end start
-
-section 'code2' readable writeable executable
- Start2:
-        invoke  MessageBox,HWND_DESKTOP,"Hi! I'm the example program from code2!",invoke GetCommandLine,MB_OK
-        invoke  ExitProcess,0
-
-section '.reloc' fixups data readable discardable       ; needed for Win32s
-```
-
-### Проверочный MessageBox x86_64
-
-```C++
-#include <iostream>
-#include <Windows.h>
-
-int main(int argc, char* argv[]) {
-    MessageBoxA(
-        HWND_DESKTOP,
-        (LPCSTR)"Hi! I'm the example program from .code!",
-        (LPCSTR)GetCommandLineA(),
-        MB_OK
-    );
-
-    return 0;
 }
-```
-
-## bin
-
-+ содержит рефлективные загрузчики x86_64 и набор тестовых PE
-
-## Пример работы
-
-![alt text](/img/reflective_loader.gif)
